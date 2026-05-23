@@ -11,6 +11,7 @@ import StrategyLab from './pages/StrategyLab'
 import BacktestCenter from './pages/BacktestCenter'
 import AgentConsole from './pages/AgentConsole'
 import RiskCenter from './pages/RiskCenter'
+import QuantPilotLayout from '@/components/quantpilot/QuantPilotLayout'
 
 // Lazy load all pages for code splitting
 // Public pages
@@ -165,11 +166,13 @@ function App() {
               <Route path="/download" element={<Download />} />
               <Route path="/error" element={<ServerError />} />
               <Route path="/rate-limited" element={<RateLimited />} />
-              <Route path="/quantpilot" element={<Dashboard />} />
-              <Route path="/quantpilot/strategy-lab" element={<StrategyLab />} />
-              <Route path="/quantpilot/backtest-center" element={<BacktestCenter />} />
-              <Route path="/quantpilot/agent-console" element={<AgentConsole />} />
-              <Route path="/quantpilot/risk-center" element={<RiskCenter />} />
+              <Route path="/quantpilot" element={<QuantPilotLayout />}>
+               <Route index element={<Dashboard />} />
+               <Route path="strategy-lab" element={<StrategyLab />} />
+               <Route path="backtest-center" element={<BacktestCenter />} />
+               <Route path="agent-console" element={<AgentConsole />} />
+               <Route path="risk-center" element={<RiskCenter />} />
+              </Route>
 
               {/* Broker auth routes */}
               <Route path="/broker" element={<BrokerSelect />} />

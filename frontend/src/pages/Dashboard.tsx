@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom'
+import MetricCard from '@/components/common/MetricCard'
+import ModuleCard from '@/components/common/ModuleCard'
 
 const modules = [
   {
@@ -65,22 +67,12 @@ export default function Dashboard() {
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {metrics.map((item) => (
-            <div
+            <MetricCard
               key={item.label}
-              className="rounded-2xl border bg-card p-5 shadow-sm"
-            >
-              <p className="text-sm text-muted-foreground">
-                {item.label}
-              </p>
-
-              <p className="mt-2 text-2xl font-semibold">
-                {item.value}
-              </p>
-
-              <p className="mt-2 text-xs text-muted-foreground">
-                {item.desc}
-              </p>
-            </div>
+              label={item.label}
+              value={item.value}
+              desc={item.desc}
+            />
           ))}
         </section>
 
@@ -97,19 +89,12 @@ export default function Dashboard() {
 
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {modules.map((item) => (
-              <Link
+              <ModuleCard
                 key={item.href}
-                to={item.href}
-                className="rounded-xl border bg-background p-5 transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <h3 className="text-lg font-semibold">
-                  {item.title}
-                </h3>
-
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {item.desc}
-                </p>
-              </Link>
+                title={item.title}
+                desc={item.desc}
+                href={item.href}
+              />
             ))}
           </div>
         </section>
@@ -121,9 +106,9 @@ export default function Dashboard() {
             </h2>
 
             <div className="mt-4 space-y-3 text-sm text-muted-foreground">
-              <p>🔥 热门板块：等待接入行情数据</p>
-              <p>💸 主力资金：等待接入资金流数据</p>
-              <p>📈 市场情绪：等待接入情绪指标</p>
+              <p>热门板块：等待接入行情数据</p>
+              <p>主力资金：等待接入资金流数据</p>
+              <p>市场情绪：等待接入情绪指标</p>
             </div>
           </div>
 
