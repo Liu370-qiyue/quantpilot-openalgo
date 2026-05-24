@@ -1,4 +1,13 @@
+import { EquityCurvePanel } from '../components/backtest/EquityCurvePanel'
+import { BacktestSummaryCards } from '../components/backtest/BacktestSummaryCards'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { TradeRecordPanel } from '../components/backtest/TradeRecordPanel'
+
 export default function BacktestCenter() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const taskId = searchParams.get('taskId')
+
   return (
     <main className="min-h-screen bg-background p-6">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -12,33 +21,28 @@ export default function BacktestCenter() {
           </h1>
 
           <p className="mt-3 max-w-3xl text-sm text-muted-foreground">
-            用于运行策略历史回测、查看收益曲线、风险指标和历史回测记录。
-            当前页面先作为板块占位，后续会接入回测任务、回测进度和结果分析。
+            用于执行历史回测、查看收益曲线、分析风险指标和导出完整回测报告。
+            策略实验室负责生成策略配置，回测中心负责执行与分析结果。
           </p>
+          {taskId && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              当前回测任务：{taskId}
+            </p>
+          )}
+          <button
+            onClick={() => navigate('/quantpilot/strategy-lab')}
+            className="mt-4 rounded-xl border px-4 py-2 text-sm"
+          >
+            返回策略实验室
+          </button>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border bg-card p-5 shadow-sm">
-            <h2 className="text-lg font-semibold">回测任务</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              预留策略选择、时间区间、股票池、初始资金等配置入口。
-            </p>
-          </div>
+        <BacktestSummaryCards />
 
-          <div className="rounded-2xl border bg-card p-5 shadow-sm">
-            <h2 className="text-lg font-semibold">收益分析</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              预留收益曲线、最大回撤、夏普比率、胜率等指标展示。
-            </p>
-          </div>
+        <EquityCurvePanel />
 
-          <div className="rounded-2xl border bg-card p-5 shadow-sm">
-            <h2 className="text-lg font-semibold">历史记录</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              预留历史回测任务、参数版本和结果对比功能。
-            </p>
-          </div>
-        </section>
+        <TradeRecordPanel />
+
       </div>
     </main>
   )
