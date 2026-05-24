@@ -109,3 +109,68 @@ Response:
   }
 ]
 ```
+
+---
+
+## 3. 前端当前使用的数据类型
+
+### QuantStrategy
+
+```ts
+export type QuantStrategyStatus = '运行中' | '暂停' | '已停止'
+
+export type QuantStrategyRiskLevel = '低' | '中' | '高'
+
+export type QuantStrategy = {
+  id: string
+  name: string
+  status: QuantStrategyStatus
+  returnRate: string
+  risk: QuantStrategyRiskLevel
+}
+```
+
+### BacktestResult
+
+```ts
+export type BacktestResult = {
+  annualReturn: string
+  sharpeRatio: string
+  winRate: string
+  totalTrades: number
+  maxDrawdown: string
+  profitFactor: string
+}
+```
+
+### TradeRecord
+
+```ts
+export type TradeSide = '买入' | '卖出'
+
+export type TradeRecord = {
+  id: string
+  time: string
+  symbol: string
+  side: TradeSide
+  price: string
+  pnl: string
+}
+```
+
+---
+
+## 4. 接口对接说明
+
+当前前端仍使用 mock 数据：
+
+- `src/data/mockStrategies.ts`
+- `src/data/mockBacktestResult.ts`
+- `src/data/mockTrades.ts`
+
+后续后端接口完成后，优先替换：
+
+- `src/services/strategyService.ts`
+- `src/services/backtestService.ts`
+
+建议后端第一版先返回与当前 mock 数据完全一致的字段结构，方便快速完成前后端联调。
