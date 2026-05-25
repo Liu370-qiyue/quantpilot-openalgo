@@ -1,417 +1,232 @@
-import {
-  ArrowLeft,
-  Eye,
-  EyeOff,
-  Github,
-  Info,
-  Loader2,
-  LogIn,
-  MessageCircle,
-  ShieldCheck,
-} from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Eye, EyeOff, LockKeyhole, ShieldCheck, TrendingUp } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { useAuthStore } from '@/stores/authStore'
-import { showToast } from '@/utils/toast'
+
+const capabilities = [
+  '多账户云端监控',
+  '策略研究与回测分析',
+  'AI Agent 风险简报',
+  '资管组合绩效归因',
+]
+
+const platformStats = [
+  ['AUM', '¥8.42B'],
+  ['Strategies', '42'],
+  ['Latency', '42ms'],
+]
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login: setLogin } = useAuthStore()
-  const [username, setUsername] = useState('')
+  const [account, setAccount] = useState('')
   const [password, setPassword] = useState('')
-  const [totpCode, setTotpCode] = useState('')
-  const [step, setStep] = useState<'password' | 'totp'>('password')
+  const [rememberMe, setRememberMe] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isCheckingSetup, setIsCheckingSetup] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Check if setup is required or already logged in on page load
-  useEffect(() => {
-    const checkSetup = async () => {
-      try {
-        // First check if setup is needed
-        const setupResponse = await fetch('/auth/check-setup', {
-          credentials: 'include',
-        })
-        const setupData = await setupResponse.json()
-        if (setupData.needs_setup) {
-          navigate('/setup', { replace: true })
-          return
-        }
-
-        // Check if already logged in
-        const sessionResponse = await fetch('/auth/session-status', {
-          credentials: 'include',
-        })
-
-        // Only process if response is successful (not 401 etc.)
-        if (sessionResponse.ok) {
-          const sessionData = await sessionResponse.json()
-
-          if (sessionData.status === 'success' && sessionData.logged_in && sessionData.broker) {
-            // Already fully logged in with broker, go to dashboard
-            navigate('/dashboard', { replace: true })
-            return
-          } else if (
-            sessionData.status === 'success' &&
-            sessionData.authenticated &&
-            !sessionData.logged_in
-          ) {
-            // Logged in but no broker, go to broker selection
-            navigate('/broker', { replace: true })
-            return
-          }
-        }
-        // If session check fails (401, etc.), just stay on login page
-      } catch (err) {
-      } finally {
-        setIsCheckingSetup(false)
-      }
-    }
-    checkSetup()
-  }, [navigate])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setError(null)
 
-    try {
-      // First, fetch CSRF token
-      const csrfResponse = await fetch('/auth/csrf-token', {
-        credentials: 'include',
-      })
-
-      if (!csrfResponse.ok) {
-        setError('Failed to initialize login. Please refresh the page.')
-        setIsLoading(false)
-        return
-      }
-
-      const csrfData = await csrfResponse.json()
-
-      // Create form data with CSRF token (matches original Flask template approach)
-      const formData = new FormData()
-      formData.append('username', username)
-      formData.append('password', password)
-      formData.append('csrf_token', csrfData.csrf_token)
-
-      // Use native fetch like the original template
-      const response = await fetch('/auth/login', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      })
-
-      // Check content type before parsing
-      const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        // If redirected to setup page, inform user
-        if (response.url.includes('/setup')) {
-          setError('Please complete initial setup first.')
-          navigate('/setup')
-        } else {
-          setError('Login failed. Please try again.')
-        }
-        setIsLoading(false)
-        return
-      }
-
-      const data = await response.json()
-
-      if (!response.ok || data.status === 'error') {
-        setError(data.message || 'Login failed. Please try again.')
-        if (data.redirect) {
-          navigate(data.redirect)
-        }
-      } else if (data.status === 'totp_required') {
-        // Server has accepted the password but won't issue a session
-        // until TOTP verifies. Switch to the second-factor step.
-        setStep('totp')
-        setError(null)
-      } else {
-        // Set login state (broker from response if session was resumed, empty otherwise)
-        setLogin(username, data.broker || '')
-        showToast.success('Login successful', 'system')
-        // Use redirect from response if provided, otherwise go to broker
-        navigate(data.redirect || '/broker')
-      }
-    } catch (err) {
-      setError('Login failed. Please try again.')
-    } finally {
-      setIsLoading(false)
+    if (!account.trim()) {
+      setError('账号不能为空')
+      return
     }
-  }
 
-  const handleTotpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const csrfResponse = await fetch('/auth/csrf-token', { credentials: 'include' })
-      if (!csrfResponse.ok) {
-        setError('Failed to verify TOTP. Please refresh the page.')
-        setIsLoading(false)
-        return
-      }
-      const { csrf_token } = await csrfResponse.json()
-
-      const response = await fetch('/auth/login/totp', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrf_token,
-        },
-        body: JSON.stringify({ totp_code: totpCode }),
-      })
-
-      const data = await response.json()
-
-      if (response.status === 401 && data.message?.toLowerCase().includes('expired')) {
-        // Pending login window timed out — bounce back to password step.
-        setError(data.message)
-        setStep('password')
-        setTotpCode('')
-        return
-      }
-
-      if (!response.ok || data.status === 'error') {
-        setError(data.message || 'Invalid TOTP code.')
-        setTotpCode('')
-        return
-      }
-
-      setLogin(username, data.broker || '')
-      showToast.success('Login successful', 'system')
-      navigate(data.redirect || '/broker')
-    } catch (err) {
-      setError('Failed to verify TOTP. Please try again.')
-    } finally {
-      setIsLoading(false)
+    if (!password.trim()) {
+      setError('密码不能为空')
+      return
     }
-  }
 
-  const handleBackToPassword = () => {
-    setStep('password')
-    setTotpCode('')
-    setError(null)
-  }
-
-  // Show loading while checking setup
-  if (isCheckingSetup) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    )
+    navigate('/dashboard')
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-8 px-4">
-      <div className="container max-w-6xl">
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16">
-          {/* Login Form - First on mobile */}
-          <Card className="w-full max-w-md order-1 lg:order-2 shadow-xl">
-            <CardHeader className="text-center">
-              <div className="flex justify-center mb-4">
-                <img src="/logo.png" alt="OpenAlgo" className="h-20 w-20" />
+    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
+      <div className="mx-auto grid min-h-[calc(100vh-48px)] max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl lg:grid-cols-[1.08fr_0.92fr]">
+        <section className="relative hidden bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-600 p-10 text-white lg:block">
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.09)_1px,transparent_1px)] bg-[size:36px_36px]" />
+          <div className="relative flex h-full flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/25">
+                  <TrendingUp className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold uppercase text-blue-100">
+                    QuantPilot
+                  </p>
+                  <p className="text-xs text-blue-100/80">
+                    Quantitative Asset Platform
+                  </p>
+                </div>
               </div>
-              <CardTitle className="text-2xl">Welcome Back</CardTitle>
-              <CardDescription>Sign in to your OpenAlgo account</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {step === 'password' ? (
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input
-                      id="username"
-                      type="text"
-                      placeholder="Enter your username"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      required
-                      disabled={isLoading}
-                      autoComplete="username"
-                    />
+
+              <div className="mt-20 max-w-xl">
+                <p className="text-sm font-semibold uppercase text-cyan-100">
+                  Professional Quant Control Center
+                </p>
+                <h1 className="mt-4 text-4xl font-semibold leading-tight">
+                  面向量化交易与资管团队的统一工作台
+                </h1>
+                <p className="mt-5 max-w-lg text-sm leading-7 text-blue-50/90">
+                  聚合策略运行、账户监控、风险状态、回测分析与 AI Agent
+                  简报，为后续接入真实认证系统预留清晰入口。
+                </p>
+              </div>
+
+              <div className="mt-10 grid max-w-lg gap-3 sm:grid-cols-2">
+                {capabilities.map((item) => (
+                  <div
+                    className="rounded-xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur"
+                    key={item}
+                  >
+                    <div className="mb-2 h-1 w-8 rounded-full bg-cyan-200" />
+                    <p className="text-sm font-medium text-white">{item}</p>
                   </div>
+                ))}
+              </div>
+            </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        disabled={isLoading}
-                        autoComplete="current-password"
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </div>
-                    <div className="text-right">
-                      <Link
-                        to="/reset-password"
-                        className="text-sm text-muted-foreground hover:text-primary"
-                      >
-                        Forgot password?
-                      </Link>
-                    </div>
-                  </div>
-
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Signing in...
-                      </>
-                    ) : (
-                      <>
-                        <LogIn className="mr-2 h-4 w-4" />
-                        Sign in
-                      </>
-                    )}
-                  </Button>
-                </form>
-              ) : (
-                <form onSubmit={handleTotpSubmit} className="space-y-4">
-                  <Alert>
-                    <ShieldCheck className="h-4 w-4" />
-                    <AlertTitle>Two-factor authentication</AlertTitle>
-                    <AlertDescription>
-                      Enter the 6-digit code from your authenticator app to complete sign-in.
-                    </AlertDescription>
-                  </Alert>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="totp_code">Authentication code</Label>
-                    <Input
-                      id="totp_code"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      pattern="[0-9]{6}"
-                      maxLength={6}
-                      placeholder="123456"
-                      value={totpCode}
-                      onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      disabled={isLoading}
-                      autoFocus
-                      required
-                      className="font-mono text-center text-lg tracking-widest"
-                    />
-                  </div>
-
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleBackToPassword}
-                      disabled={isLoading}
-                    >
-                      <ArrowLeft className="mr-1 h-4 w-4" />
-                      Back
-                    </Button>
-                    <Button
-                      type="submit"
-                      className="flex-1"
-                      disabled={isLoading || totpCode.length !== 6}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Verifying...
-                        </>
-                      ) : (
-                        'Verify code'
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Welcome Content - Second on mobile */}
-          <div className="flex-1 max-w-xl text-center lg:text-left order-2 lg:order-1">
-            <h1 className="text-4xl lg:text-5xl font-bold mb-6">
-              Welcome to <span className="text-primary">OpenAlgo</span>
-            </h1>
-            <p className="text-lg lg:text-xl mb-8 text-muted-foreground">
-              Sign in to your account to access your trading dashboard and manage your algorithmic
-              trading strategies.
-            </p>
-
-            <Alert className="mb-6">
-              <Info className="h-4 w-4" />
-              <AlertTitle>First Time User?</AlertTitle>
-              <AlertDescription>
-                Contact your administrator to set up your account.
-              </AlertDescription>
-            </Alert>
-
-            <div className="flex justify-center lg:justify-start gap-4">
-              <Button variant="outline" asChild>
-                <a
-                  href="https://github.com/marketcalls/openalgo"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2"
+            <div className="grid grid-cols-3 gap-3">
+              {platformStats.map(([label, value]) => (
+                <div
+                  className="rounded-xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur"
+                  key={label}
                 >
-                  <Github className="h-5 w-5" />
-                  GitHub
-                </a>
-              </Button>
-              <Button variant="outline" asChild>
-                <a
-                  href="https://openalgo.in/discord"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2"
-                >
-                  <MessageCircle className="h-5 w-5" />
-                  Discord
-                </a>
-              </Button>
+                  <p className="text-xs text-blue-100/80">{label}</p>
+                  <p className="mt-1 text-xl font-semibold">{value}</p>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        </section>
+
+        <section className="flex items-center justify-center px-5 py-10 sm:px-8">
+          <div className="w-full max-w-md">
+            <div className="mb-8 lg:hidden">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold uppercase text-blue-600">
+                    QuantPilot
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Quantitative Asset Platform
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-6">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <p className="text-sm font-semibold uppercase text-blue-600">
+                  QuantPilot
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+                  登录账户
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  进入量化交易平台
+                </p>
+              </div>
+
+              <form className="space-y-4" onSubmit={handleSubmit}>
+                <div>
+                  <label
+                    className="mb-1.5 block text-sm font-medium text-slate-700"
+                    htmlFor="account"
+                  >
+                    账号
+                  </label>
+                  <input
+                    autoComplete="username"
+                    className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                    id="account"
+                    onChange={(event) => setAccount(event.target.value)}
+                    placeholder="请输入账号"
+                    type="text"
+                    value={account}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="mb-1.5 block text-sm font-medium text-slate-700"
+                    htmlFor="password"
+                  >
+                    密码
+                  </label>
+                  <div className="relative">
+                    <input
+                      autoComplete="current-password"
+                      className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 pr-11 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                      id="password"
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="请输入密码"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                    />
+                    <button
+                      aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                      className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                      onClick={() => setShowPassword((value) => !value)}
+                      type="button"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                    <input
+                      checked={rememberMe}
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      onChange={(event) => setRememberMe(event.target.checked)}
+                      type="checkbox"
+                    />
+                    记住我
+                  </label>
+
+                  <Link
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                    to="/reset-password"
+                  >
+                    忘记密码
+                  </Link>
+                </div>
+
+                {error ? (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                    {error}
+                  </div>
+                ) : null}
+
+                <button
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                  type="submit"
+                >
+                  <LockKeyhole className="h-4 w-4" />
+                  登录
+                </button>
+              </form>
+
+              <p className="mt-5 text-center text-sm text-slate-500">
+                暂未开放注册，请联系管理员
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   )
 }
